@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard — Kellogg GeoGuessr</title>
+  <meta name="description" content="Top scores from the Kellogg Global Hub GeoGuessr challenge." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── RESET & TOKENS ──────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0e;
+      --surface: #1a1916;
+      --surface2: #222118;
+      --border: rgba(255,255,255,0.08);
+      --gold: #c8a96e;
+      --gold-light: #e2c98a;
+      --gold-dim: rgba(200,169,110,0.25);
+      --purple: #4e2a84;
+      --purple-light: #6b3dab;
+      --green: #4caf7d;
+      --text: #f0ece3;
+      --text-muted: #8a8478;
+      --text-dim: #5a5650;
+      --font-serif: 'DM Serif Display', Georgia, serif;
+      --font-sans: 'DM Sans', system-ui, sans-serif;
+      --radius: 12px;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+    }
+
+    /* ── LAYOUT ──────────────────────────────────────────────── */
+    .page {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 3rem;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── HEADER ──────────────────────────────────────────────── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.82rem;
+      margin-bottom: 1rem;
+      transition: color 0.2s;
+    }
+
+    .back-link:hover { color: var(--gold); }
+
+    .badge {
+      font-size: 0.6rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid var(--gold-dim);
+      display: inline-block;
+      padding: 0.3em 0.9em;
+      border-radius: 2em;
+      margin-bottom: 0.75rem;
+    }
+
+    .page-title {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .page-sub {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    /* ── LEADERBOARD TABLE ───────────────────────────────────── */
+    .lb-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .lb-table th {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .lb-table th:last-child,
+    .lb-table td:last-child {
+      text-align: right;
+    }
+
+    .lb-table tr {
+      transition: background 0.15s;
+    }
+
+    .lb-table tbody tr:hover {
+      background: var(--surface);
+    }
+
+    .lb-table td {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+
+    .rank-cell {
+      width: 3rem;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    .rank-cell.gold { color: var(--gold); }
+    .rank-cell.silver { color: #aaa; }
+    .rank-cell.bronze { color: #b87333; }
+
+    .name-cell {
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .score-cell {
+      font-weight: 600;
+      color: var(--gold);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .date-cell {
+      color: var(--text-dim);
+      font-size: 0.78rem;
+    }
+
+    .rounds-cell {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+
+    /* ── STATES ───────────────────────────────────────────────── */
+    .loading-state, .empty-state, .error-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+
+    .loading-state .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--gold-dim);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .empty-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    /* ── PODIUM (top 3 highlight) ────────────────────────────── */
+    .podium {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .podium-item {
+      flex: 1;
+      max-width: 160px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 0.75rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .podium-item.first {
+      order: 0;
+      border-color: var(--gold-dim);
+      background: rgba(200,169,110,0.06);
+      transform: translateY(-0.5rem);
+    }
+
+    .podium-item.second { order: -1; }
+    .podium-item.third  { order: 1; }
+
+    .podium-rank {
+      font-size: 1.5rem;
+      font-family: var(--font-serif);
+      margin-bottom: 0.5rem;
+    }
+
+    .podium-rank.gold   { color: var(--gold); }
+    .podium-rank.silver { color: #aaa; }
+    .podium-rank.bronze { color: #b87333; }
+
+    .podium-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .podium-score {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--gold);
+      font-family: var(--font-serif);
+    }
+
+    .podium-max {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    /* ── SCROLLBAR ────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────── */
+    @media (max-width: 500px) {
+      .podium { flex-direction: column; align-items: center; }
+      .podium-item { max-width: 100%; width: 100%; }
+      .podium-item.first { transform: none; }
+      .podium-item.second { order: 0; }
+      .podium-item.third { order: 0; }
+    }
+  </style>
+
+  <!-- Load Firebase config from gitignored file (see firebase-config.example.js) -->
+  <script src="firebase-config.js"></script>
+
+  <!-- Firebase v10 -->
+  <script type="module">
+    import { initializeApp }            from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getFirestore, collection,
+             getDocs, query, orderBy,
+             where }                    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    /* Config is loaded from firebase-config.js (gitignored).
+       See firebase-config.example.js for setup instructions. */
+    if (!window.FIREBASE_CONFIG) {
+      throw new Error('firebase-config.js not found. Copy firebase-config.example.js → firebase-config.js and fill in your values.');
+    }
+
+    const app = initializeApp(window.FIREBASE_CONFIG);
+    const db  = getFirestore(app);
+
+    /* Expose helpers for the inline script below */
+    window._lb = { db, collection, getDocs, query, orderBy, where };
+
+    /* Signal that Firebase is connected */
+    document.dispatchEvent(new Event('firebase-ready'));
+  </script>
+</head>
+<body>
+
+<div class="page">
+  <header class="page-header">
+    <a href="index.html" class="back-link">← Back to Game</a>
+    <div class="badge">KELLOGG GEOGUESSR</div>
+    <h1 class="page-title">🏆 Leaderboard</h1>
+    <p class="page-sub">Top scores from the Global Hub GeoGuessr challenge</p>
+  </header>
+
+  <!-- Podium (top 3) -->
+  <div class="podium" id="podium" style="display:none;"></div>
+
+  <!-- Loading state -->
+  <div class="loading-state" id="loadingState">
+    <div class="spinner"></div>
+    <div>Loading leaderboard…</div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <div class="empty-icon">🗺️</div>
+    <div>No scores yet — be the first to play!</div>
+  </div>
+
+  <!-- Error state -->
+  <div class="error-state" id="errorState" style="display:none;">
+    <div class="empty-icon">⚠️</div>
+    <div id="errorMessage">Failed to load leaderboard</div>
+  </div>
+
+  <!-- Table -->
+  <table class="lb-table" id="lbTable" style="display:none;">
+    <thead>
+      <tr>
+        <th>Rank</th>
+        <th>Player</th>
+        <th>Rounds</th>
+        <th>Score</th>
+      </tr>
+    </thead>
+    <tbody id="lbBody"></tbody>
+  </table>
+</div>
+
+<script>
+  // Wait for Firebase module to initialize
+  document.addEventListener('firebase-ready', loadLeaderboard);
+
+  async function loadLeaderboard() {
+    const { db, collection, getDocs, query, orderBy, where } = window._lb;
+    const loadingEl = document.getElementById('loadingState');
+    const emptyEl   = document.getElementById('emptyState');
+    const errorEl   = document.getElementById('errorState');
+    const tableEl   = document.getElementById('lbTable');
+    const podiumEl  = document.getElementById('podium');
+
+    try {
+      // Only show completed games with a name
+      const q = query(
+        collection(db, 'geoguessr_leaderboard'),
+        orderBy('score', 'desc')
+      );
+      const snapshot = await getDocs(q);
+
+      const entries = [];
+      snapshot.forEach((doc) => {
+        const d = doc.data();
+        // Only show entries that have a name and a completed game
+        if (d.playerName && d.score > 0) {
+          entries.push(d);
+        }
+      });
+
+      loadingEl.style.display = 'none';
+
+      if (entries.length === 0) {
+        emptyEl.style.display = '';
+        return;
+      }
+
+      // Render podium (top 3)
+      if (entries.length >= 1) {
+        podiumEl.style.display = '';
+        renderPodium(entries.slice(0, 3));
+      }
+
+      // Render table
+      tableEl.style.display = '';
+      renderTable(entries);
+
+    } catch (err) {
+      console.error('Leaderboard load error:', err);
+      loadingEl.style.display = 'none';
+      errorEl.style.display = '';
+      document.getElementById('errorMessage').textContent =
+        `Failed to load: ${err.code || err.message || 'unknown error'}`;
+    }
+  }
+
+  function renderPodium(top) {
+    const podiumEl = document.getElementById('podium');
+    const classes = ['first', 'second', 'third'];
+    const ranks   = ['🥇', '🥈', '🥉'];
+    const colors  = ['gold', 'silver', 'bronze'];
+
+    podiumEl.innerHTML = '';
+    top.forEach((entry, i) => {
+      const div = document.createElement('div');
+      div.className = `podium-item ${classes[i] || ''}`;
+      div.innerHTML = `
+        <div class="podium-rank ${colors[i]}">${ranks[i]}</div>
+        <div class="podium-name">${escHtml(entry.playerName)}</div>
+        <div class="podium-score">${entry.score}</div>
+        <div class="podium-max">/ ${entry.maxScore || '?'}</div>
+      `;
+      podiumEl.appendChild(div);
+    });
+  }
+
+  function renderTable(entries) {
+    const tbody = document.getElementById('lbBody');
+    tbody.innerHTML = '';
+
+    entries.forEach((entry, i) => {
+      const rank = i + 1;
+      const tr = document.createElement('tr');
+
+      let rankClass = '';
+      if (rank === 1) rankClass = 'gold';
+      else if (rank === 2) rankClass = 'silver';
+      else if (rank === 3) rankClass = 'bronze';
+
+      tr.innerHTML = `
+        <td class="rank-cell ${rankClass}">${rank}</td>
+        <td class="name-cell">${escHtml(entry.playerName)}</td>
+        <td class="rounds-cell">${entry.roundCount || '?'}</td>
+        <td class="score-cell">${entry.score} / ${entry.maxScore || '?'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function escHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+</script>
+
+</body>
+</html>

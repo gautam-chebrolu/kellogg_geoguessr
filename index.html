@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kellogg GeoGuessr</title>
+  <meta name="description" content="Test your knowledge of the Kellogg Global Hub — guess where each photo was taken, floor by floor." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- SPLASH SCREEN -->
+  <div id="splash" class="screen active">
+    <div class="splash-bg"></div>
+    <div class="splash-content">
+      <div class="kellogg-badge">KELLOGG SCHOOL OF MANAGEMENT</div>
+      <h1 class="splash-title">Global Hub<br /><em>GeoGuessr</em></h1>
+      <p class="splash-sub">Do you know your way around the Global Hub?<br />Guess where each photo was taken — floor by floor.</p>
+      <button class="btn-primary" id="startBtn">Start Game</button>
+      <div class="splash-links">
+        <a href="leaderboard.html" class="splash-link" id="leaderboardLink">🏆 Leaderboard</a>
+      </div>
+      <div class="splash-meta" id="splashMeta">Loading rounds…</div>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game" class="screen">
+    <header class="game-header">
+      <div class="header-left">
+        <span class="round-label">Round <span id="roundNum">1</span> of <span id="roundTotal">4</span></span>
+        <div class="score-display">Score: <span id="scoreDisplay">0</span></div>
+      </div>
+      <div class="header-center">
+        <span class="building-name">Kellogg Global Hub</span>
+      </div>
+      <div class="header-right">
+        <div class="timer-ring">
+          <svg viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+            <circle id="timerArc" cx="18" cy="18" r="15.9" fill="none" stroke="#c8a96e" stroke-width="2"
+              stroke-dasharray="100 100" stroke-linecap="round" transform="rotate(-90 18 18)"/>
+          </svg>
+          <span id="timerText">30</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="game-body">
+      <!-- Photo panel -->
+      <div class="photo-panel">
+        <div class="photo-hint">📍 Where in the Global Hub was this taken?</div>
+        <div class="photo-frame">
+          <img id="roundPhoto" src="" alt="Kellogg location" />
+          <div class="photo-overlay-label" id="photoLabel"></div>
+        </div>
+        <div class="photo-caption" id="photoCaption">Look for architectural clues — ceiling height, views, room shape.</div>
+      </div>
+
+      <!-- Map panel -->
+      <div class="map-panel">
+        <div class="floor-tabs" id="floorTabs"></div>
+        <div class="map-container" id="mapContainer">
+          <div class="map-wrapper" id="mapWrapper">
+            <img id="floorplanImg" src="" alt="Kellogg Floor Plan" draggable="false" />
+            <canvas id="guessCanvas"></canvas>
+          </div>
+          <div class="floor-select-hint" id="floorSelectHint">
+            <div class="floor-select-icon">↑</div>
+            Select a floor above to view the floor plan
+          </div>
+        </div>
+        <div class="map-instructions">Click on the floor plan to place your guess</div>
+        <button class="btn-guess" id="guessBtn" disabled>Confirm Guess</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT SCREEN (overlay) -->
+  <div id="result" class="screen result-overlay hidden">
+    <div class="result-card">
+      <div class="result-score-ring">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(200,169,110,0.2)" stroke-width="6"/>
+          <circle id="resultArc" cx="60" cy="60" r="52" fill="none" stroke="#c8a96e" stroke-width="6"
+            stroke-dasharray="0 327" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="result-score-inner">
+          <span class="result-pts" id="resultPts">0</span>
+          <span class="result-pts-label">pts</span>
+        </div>
+      </div>
+      <div class="result-floor-badge" id="resultFloorBadge"></div>
+      <div class="result-distance" id="resultDistance"></div>
+      <div class="result-location" id="resultLocation"></div>
+      <div class="result-map-preview" id="resultMapPreview">
+        <canvas id="resultCanvas"></canvas>
+      </div>
+      <button class="btn-primary" id="nextBtn">Next Round</button>
+    </div>
+  </div>
+
+  <!-- FINAL SCREEN -->
+  <div id="final" class="screen hidden">
+    <div class="final-content">
+      <div class="kellogg-badge">GAME OVER</div>
+      <h2 class="final-title">Final Score</h2>
+      <div class="final-score-wrap">
+        <div class="final-score" id="finalScore">0</div>
+        <div class="final-score-max">/ 4000</div>
+      </div>
+      <div class="final-grade" id="finalGrade"></div>
+      <div class="final-breakdown" id="finalBreakdown"></div>
+
+      <!-- Leaderboard name submission -->
+      <div class="leaderboard-submit" id="leaderboardSubmit">
+        <input type="text" id="playerNameInput" class="player-name-input" placeholder="Enter your name for the leaderboard" maxlength="30" />
+        <button class="btn-primary btn-sm" id="submitScoreBtn">Submit Score</button>
+      </div>
+      <div class="leaderboard-submitted hidden" id="leaderboardSubmitted">
+        <span class="submitted-check">✓</span> Score submitted!
+      </div>
+
+      <div class="final-actions">
+        <button class="btn-primary" id="playAgainBtn">Play Again</button>
+        <a href="leaderboard.html" class="btn-ghost">View Leaderboard</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (v10 modular — loaded from CDN, no npm needed) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <!-- Load Firebase config from gitignored file (see firebase-config.example.js) -->
+  <script src="firebase-config.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

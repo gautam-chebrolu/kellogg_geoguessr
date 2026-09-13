@@ -1,0 +1,85 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Kellogg Mini Games — Firestore rules (project: kellogg-mini-games)
+//
+//  IMPORTANT: kellogg-bidtrivia/, kellogg-profguess/, and kellogg-geoguessr/
+//  all deploy to this same Firebase project, and each has its own
+//  firebase.json pointing at its own firestore.rules. A deploy from ANY repo
+//  replaces the rules for the WHOLE project. These files must therefore be
+//  kept in sync and must cover every collection all games use.
+//
+//  Collection layout (same shape for all games):
+//    tournament/codes            — one-time team codes, shared by all games
+//    <game>/{teamCode}           — tournament sessions, keyed by team code
+//    <game>_leaderboard/{isoTs}  — single-player sessions, keyed by start time
+//    geoguessr_rounds/{roundId}  — geoguessr round data (photos, answers)
+//    geoguessr_analytics/{docId} — geoguessr usage analytics
+// ═══════════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Shared tournament code registry ──────────────────────────────────
+    // Read to validate a code, update to mark one as consumed. Codes are
+    // provisioned by the host in the console — clients may not add or remove.
+    match /tournament/{docId} {
+      allow read, update: if true;
+      allow create, delete: if false;
+    }
+
+    // ── BidTrivia ────────────────────────────────────────────────────────
+    // Tournament sessions, keyed by team code.
+    match /bidtrivia/{teamCode} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    // Public single-player leaderboard. Documents follow a three-step
+    // lifecycle: created at game start, patched at game end with the score,
+    // then patched again when the player submits a name. All three steps are
+    // client-side, so create and update must both be open. Delete never is.
+    match /bidtrivia_leaderboard/{docId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    // ── ProfGuess ────────────────────────────────────────────────────────
+    // Tournament sessions, keyed by team code.
+    match /profguess/{teamCode} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    // Public single-player leaderboard — same three-step lifecycle as
+    // bidtrivia_leaderboard above.
+    match /profguess_leaderboard/{docId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    // ── GeoGuessr ────────────────────────────────────────────────────────
+    // Round definitions — created/updated by the editor, read by the game.
+    match /geoguessr_rounds/{roundId} {
+      allow read, create, update: if true;
+      allow delete: if true;
+    }
+
+    // Public single-player leaderboard — same lifecycle as other games.
+    match /geoguessr_leaderboard/{docId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    // Usage analytics — game sessions logged by the client.
+    match /geoguessr_analytics/{docId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    // ── Default: deny everything else ────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

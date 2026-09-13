@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kellogg GeoGuessr — Round Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── RESET & TOKENS ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0e;
+      --surface: #1a1916;
+      --surface2: #222118;
+      --border: rgba(255,255,255,0.09);
+      --gold: #c8a96e;
+      --gold-light: #e2c98a;
+      --gold-dim: rgba(200,169,110,0.25);
+      --purple: #4e2a84;
+      --purple-light: #6b3dab;
+      --green: #4caf7d;
+      --red: #e05252;
+      --text: #f0ece3;
+      --text-muted: #8a8478;
+      --text-dim: #4a4640;
+      --font-serif: 'DM Serif Display', Georgia, serif;
+      --font-sans: 'DM Sans', system-ui, sans-serif;
+      --radius: 10px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      overflow: hidden;
+    }
+
+    /* ── PASSWORD GATE ──────────────────────────────────────── */
+    .password-gate {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      z-index: 1000;
+    }
+
+    .password-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      max-width: 380px;
+      width: 90%;
+      text-align: center;
+      animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.85); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .password-card .badge {
+      font-family: var(--font-sans);
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid var(--gold-dim);
+      display: inline-block;
+      padding: 0.25em 0.8em;
+      border-radius: 2em;
+      margin-bottom: 1rem;
+    }
+
+    .password-card h2 {
+      font-family: var(--font-serif);
+      font-size: 1.5rem;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .password-card p {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .password-input-wrap {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .password-input-wrap input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3em;
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      padding: 0.65em 1.2em;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .password-input-wrap input:focus {
+      border-color: var(--gold-dim);
+    }
+
+    .password-error {
+      color: var(--red);
+      font-size: 0.8rem;
+      min-height: 1.2em;
+    }
+
+    .btn-gold {
+      background: var(--gold);
+      color: #0f0f0e;
+      border: none;
+      border-radius: 3em;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.65em 1.5em;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn-gold:hover { background: var(--gold-light); }
+
+    /* ── LAYOUT ─────────────────────────────────────────────── */
+    .app {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      grid-template-rows: 52px 1fr;
+      height: 100vh;
+    }
+
+    .app.locked { display: none; }
+
+    /* ── TOPBAR ─────────────────────────────────────────────── */
+    .topbar {
+      grid-column: 1 / -1;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.25rem;
+      gap: 1rem;
+    }
+
+    .topbar-title {
+      font-family: var(--font-serif);
+      font-size: 1rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .topbar-title .badge {
+      font-family: var(--font-sans);
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid var(--gold-dim);
+      padding: 0.2em 0.7em;
+      border-radius: 2em;
+    }
+
+    .topbar-actions { display: flex; gap: 0.6rem; align-items: center; }
+
+    .firebase-status {
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      padding: 0.25em 0.7em;
+      border-radius: 2em;
+    }
+
+    .firebase-status.connected {
+      color: var(--green);
+      border: 1px solid rgba(76,175,125,0.3);
+      background: rgba(76,175,125,0.08);
+    }
+
+    .firebase-status.disconnected {
+      color: var(--red);
+      border: 1px solid rgba(224,82,82,0.3);
+      background: rgba(224,82,82,0.08);
+    }
+
+    /* ── SIDEBAR ─────────────────────────────────────────────── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 1rem 1.1rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header h2 {
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .round-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.6rem;
+    }
+
+    .round-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.7rem 0.85rem;
+      margin-bottom: 0.4rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+    }
+
+    .round-item:hover { background: var(--surface2); }
+
+    .round-item.active {
+      border-color: var(--gold-dim);
+      background: rgba(200,169,110,0.06);
+    }
+
+    .round-item.has-answer::after {
+      content: '✓';
+      position: absolute;
+      top: 0.55rem;
+      right: 0.75rem;
+      font-size: 0.7rem;
+      color: var(--green);
+    }
+
+    .round-item-num {
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.2rem;
+    }
+
+    .round-item-name {
+      font-size: 0.82rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 1.2rem;
+    }
+
+    .round-item-coords {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin-top: 0.2rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .round-item-photo {
+      font-size: 0.65rem;
+      color: var(--green);
+      margin-top: 0.15rem;
+    }
+
+    .round-item-photo.missing {
+      color: var(--red);
+    }
+
+    /* ── EDITOR FORM ─────────────────────────────────────────── */
+    .editor-form {
+      padding: 0.75rem 0.85rem;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      background: var(--surface2);
+      overflow-y: auto;
+      max-height: 50vh;
+    }
+
+    .editor-form h3 {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.15rem;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 0.25rem; }
+
+    .field label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .field input, .field textarea, .field select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      padding: 0.45em 0.7em;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+      resize: none;
+    }
+
+    .field input:focus, .field textarea:focus, .field select:focus {
+      border-color: var(--gold-dim);
+    }
+
+    .field select option { background: #1a1916; }
+
+    .coord-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.4rem;
+    }
+
+    .coord-hint {
+      font-size: 0.67rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+      margin-top: -0.1rem;
+    }
+
+    /* ── PHOTO UPLOAD ────────────────────────────────────────── */
+    .photo-upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    .photo-upload-zone:hover {
+      border-color: var(--gold-dim);
+      background: rgba(200,169,110,0.04);
+    }
+
+    .photo-upload-zone.dragover {
+      border-color: var(--gold);
+      background: rgba(200,169,110,0.08);
+    }
+
+    .photo-upload-zone.uploading {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .photo-upload-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .photo-upload-text {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .photo-upload-progress {
+      margin-top: 0.5rem;
+      font-size: 0.7rem;
+      color: var(--gold);
+    }
+
+    .photo-preview {
+      width: 100%;
+      border-radius: 6px;
+      margin-top: 0.5rem;
+      max-height: 100px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+    }
+
+    /* ── MAP AREA ───────────────────────────────────────────── */
+    .map-area {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .map-toolbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.55rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .map-toolbar-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .floor-tabs-editor {
+      display: flex;
+      gap: 0;
+    }
+
+    .floor-tab-editor {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      font-family: var(--font-sans);
+    }
+
+    .floor-tab-editor:first-child { border-radius: 6px 0 0 6px; }
+    .floor-tab-editor:last-child  { border-radius: 0 6px 6px 0; }
+    .floor-tab-editor:not(:last-child) { border-right: none; }
+
+    .floor-tab-editor:hover { color: var(--text); }
+
+    .floor-tab-editor.active {
+      color: var(--gold);
+      border-color: var(--gold-dim);
+      background: rgba(200,169,110,0.08);
+    }
+
+    .crosshair-coords {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
+      margin-left: auto;
+    }
+
+    .crosshair-coords span { color: var(--gold); }
+
+    .map-scroll {
+      flex: 1;
+      overflow: auto;
+      cursor: crosshair;
+      position: relative;
+    }
+
+    .map-inner {
+      position: relative;
+      display: inline-block;
+      min-width: 100%;
+      min-height: 100%;
+    }
+
+    #floorplanImg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    #pinCanvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    /* ── BUTTONS ────────────────────────────────────────────── */
+    .btn {
+      border: none;
+      border-radius: 6px;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0.45em 1em;
+      letter-spacing: 0.03em;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-gold { background: var(--gold); color: #0f0f0e; }
+    .btn-purple { background: var(--purple); color: #fff; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .btn-ghost:hover { border-color: var(--gold-dim); color: var(--text); }
+    .btn-danger { background: var(--red); color: #fff; }
+    .btn-green { background: var(--green); color: #0f0f0e; }
+    .btn-sm { font-size: 0.72rem; padding: 0.3em 0.75em; }
+
+    /* ── TOAST ──────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--purple);
+      color: #fff;
+      padding: 0.5em 1.4em;
+      border-radius: 2em;
+      font-size: 0.82rem;
+      z-index: 200;
+      pointer-events: none;
+      animation: toastIn 0.25s ease, toastOut 0.3s ease 1.7s forwards;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    @keyframes toastOut {
+      to { opacity: 0; transform: translateX(-50%) translateY(6px); }
+    }
+
+    /* ── SCROLLBAR ──────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+    /* ── EMPTY STATE ────────────────────────────────────────── */
+    .empty-hint {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      pointer-events: none;
+    }
+
+    .empty-hint .big { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    /* ── HIDDEN ─────────────────────────────────────────────── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- PASSWORD GATE -->
+<div class="password-gate" id="passwordGate">
+  <div class="password-card">
+    <div class="badge">ADMIN ACCESS</div>
+    <h2>Round Editor</h2>
+    <p>Enter the password to manage GeoGuessr rounds</p>
+    <div class="password-input-wrap">
+      <input type="password" id="passwordInput" placeholder="Password" autofocus />
+      <button class="btn-gold" id="passwordSubmit">Enter</button>
+    </div>
+    <div class="password-error" id="passwordError"></div>
+  </div>
+</div>
+
+<div class="app locked" id="editorApp">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-title">
+      Kellogg GeoGuessr
+      <span class="badge">Round Editor</span>
+    </div>
+    <div class="topbar-actions">
+      <span class="firebase-status" id="fbStatus">⏳ Connecting…</span>
+      <a href="index.html" class="btn btn-ghost btn-sm">← Back to Game</a>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>Rounds (<span id="roundCount">0</span>)</h2>
+      <button class="btn btn-purple btn-sm" id="addRoundBtn">+ Add Round</button>
+    </div>
+
+    <div class="round-list" id="roundList">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- EDIT FORM -->
+    <div class="editor-form" id="editorForm">
+      <h3 id="formTitle">Select a round to edit</h3>
+
+      <!-- Photo upload -->
+      <div class="field">
+        <label>Photo</label>
+        <div class="photo-upload-zone" id="photoUploadZone">
+          <div class="photo-upload-icon">📷</div>
+          <div class="photo-upload-text">Drop photo here or click to upload</div>
+          <div class="photo-upload-progress" id="uploadProgress"></div>
+        </div>
+        <input type="file" id="photoFileInput" accept="image/*" style="display:none" />
+        <img class="photo-preview hidden" id="photoPreview" alt="Preview" />
+        <input type="text" id="fPhotoUrl" placeholder="Photo URL (auto-filled after upload)" readonly style="margin-top:0.3rem;" />
+      </div>
+
+      <div class="field">
+        <label>Hint (shown during round)</label>
+        <textarea id="fHint" rows="2" placeholder="e.g. A large atrium with glass ceiling..."></textarea>
+      </div>
+
+      <div class="field">
+        <label>Location name (revealed after guess)</label>
+        <input type="text" id="fLocation" placeholder="Level L1 — North Atrium" />
+      </div>
+
+      <div class="field">
+        <label>Answer pin</label>
+        <div class="coord-row">
+          <div class="field">
+            <label>Floor</label>
+            <select id="fFloor">
+              <option value="">—</option>
+              <option>LL</option>
+              <option>L1</option>
+              <option>L2</option>
+              <option>L3</option>
+              <option>L4</option>
+              <option>L5</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>X %</label>
+            <input type="number" id="fX" min="0" max="100" step="0.1" placeholder="0–100" />
+          </div>
+          <div class="field">
+            <label>Y %</label>
+            <input type="number" id="fY" min="0" max="100" step="0.1" placeholder="0–100" />
+          </div>
+        </div>
+        <p class="coord-hint">👆 Select a floor tab above the map, then click on the floor plan to set X/Y automatically.</p>
+      </div>
+
+      <div style="display:flex; gap:0.4rem; margin-top:0.25rem;">
+        <button class="btn btn-green btn-sm" id="saveRoundBtn" style="flex:1">Save to Firebase</button>
+        <button class="btn btn-danger btn-sm" id="deleteRoundBtn">Delete</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAP -->
+  <main class="map-area">
+    <div class="map-toolbar">
+      <span class="map-toolbar-label">Floor plan</span>
+      <div class="floor-tabs-editor" id="editorFloorTabs"></div>
+      <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.75rem;color:var(--text-muted);cursor:pointer;">
+        <input type="checkbox" id="showAllPins" checked style="accent-color:var(--gold);" />
+        Show all pins
+      </label>
+      <div class="crosshair-coords" id="coordDisplay">x: <span>—</span> &nbsp; y: <span>—</span></div>
+    </div>
+
+    <div class="map-scroll" id="mapScroll">
+      <div class="map-inner" id="mapInner">
+        <img
+          id="floorplanImg"
+          src="media/floor_L1.jpg"
+          alt="Kellogg Floor Plan"
+        />
+        <canvas id="pinCanvas"></canvas>
+        <div class="empty-hint" id="emptyHint">
+          <div class="big">📍</div>
+          Select or add a round, then click here to place the answer pin.
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Firebase SDK (compat) — must load before editor script -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+// ============================================================
+// KELLOGG GEOGUESSR — ROUND EDITOR (Firebase-connected)
+// ============================================================
+
+const EDITOR_PASSWORD = "password";
+
+const FLOOR_IMAGES = {
+  LL: "media/floor_LL.jpg",
+  L1: "media/floor_L1.jpg",
+  L2: "media/floor_L2.jpg",
+  L3: "media/floor_L3.jpg",
+  L4: "media/floor_L4.jpg",
+  L5: "media/floor_L5.jpg",
+};
+
+const FLOORS = [
+  { id: "LL", label: "LL" },
+  { id: "L1", label: "L1" },
+  { id: "L2", label: "L2" },
+  { id: "L3", label: "L3" },
+  { id: "L4", label: "L4" },
+  { id: "L5", label: "L5" },
+];
+
+// ── PASSWORD GATE ────────────────────────────────────────────
+const gate = document.getElementById("passwordGate");
+const pwInput = document.getElementById("passwordInput");
+const pwSubmit = document.getElementById("passwordSubmit");
+const pwError = document.getElementById("passwordError");
+const editorApp = document.getElementById("editorApp");
+
+pwSubmit.addEventListener("click", checkPassword);
+pwInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") checkPassword();
+});
+
+function checkPassword() {
+  const val = pwInput.value.trim();
+  if (val === EDITOR_PASSWORD) {
+    gate.style.display = "none";
+    editorApp.classList.remove("locked");
+    initEditor();
+  } else {
+    pwError.textContent = "Incorrect password";
+    pwInput.value = "";
+    pwInput.focus();
+    setTimeout(() => { pwError.textContent = ""; }, 2000);
+  }
+}
+
+// ── STATE ────────────────────────────────────────────────────
+let rounds = [];
+let activeIdx = null;
+let imgLoaded = false;
+let selectedEditorFloor = "L1";
+let db = null;
+let storage = null;
+let firebaseOk = false;
+
+// ── INIT EDITOR ──────────────────────────────────────────────
+async function initEditor() {
+  // Init Firebase
+  firebaseOk = initFirebase();
+
+  // Build floor tabs
+  buildEditorFloorTabs();
+
+  // Load rounds from Firestore
+  if (firebaseOk) {
+    await loadRoundsFromFirestore();
+  }
+
+  renderList();
+
+  // Trigger image load if cached
+  if (img.complete && img.naturalWidth) {
+    imgLoaded = true;
+    syncCanvas();
+    redraw();
+  }
+}
+
+function initFirebase() {
+  if (!window.FIREBASE_CONFIG) {
+    setFbStatus(false, "No config");
+    return false;
+  }
+  try {
+    // Check if already initialized
+    let app;
+    try {
+      app = firebase.app();
+    } catch (e) {
+      app = firebase.initializeApp(window.FIREBASE_CONFIG);
+    }
+    db = firebase.firestore();
+    storage = firebase.storage();
+    setFbStatus(true, "Connected");
+    return true;
+  } catch (e) {
+    console.error("Firebase init failed:", e);
+    setFbStatus(false, "Error");
+    return false;
+  }
+}
+
+function setFbStatus(ok, label) {
+  const el = document.getElementById("fbStatus");
+  el.textContent = (ok ? "🟢" : "🔴") + " " + label;
+  el.className = "firebase-status " + (ok ? "connected" : "disconnected");
+}
+
+// ── LOAD ROUNDS FROM FIRESTORE ───────────────────────────────
+async function loadRoundsFromFirestore() {
+  try {
+    const snapshot = await db.collection("geoguessr_rounds").get();
+    rounds = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      rounds.push({
+        id: doc.id,
+        photoUrl: data.photoUrl || "",
+        hint: data.hint || "",
+        locationName: data.locationName || "",
+        answer: data.answer || { floor: "", x: null, y: null },
+      });
+    });
+  } catch (e) {
+    console.error("Failed to load rounds:", e);
+    toast("Failed to load rounds from Firebase");
+  }
+}
+
+// ── EDITOR FLOOR TABS ────────────────────────────────────────
+function buildEditorFloorTabs() {
+  const container = document.getElementById("editorFloorTabs");
+  container.innerHTML = "";
+  FLOORS.forEach((f) => {
+    const btn = document.createElement("button");
+    btn.className = "floor-tab-editor" + (f.id === selectedEditorFloor ? " active" : "");
+    btn.textContent = f.label;
+    btn.dataset.floor = f.id;
+    btn.addEventListener("click", () => selectEditorFloor(f.id));
+    container.appendChild(btn);
+  });
+}
+
+function selectEditorFloor(floorId) {
+  selectedEditorFloor = floorId;
+  document.querySelectorAll(".floor-tab-editor").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.floor === floorId);
+  });
+  // Swap the floor plan image
+  img.src = FLOOR_IMAGES[floorId];
+}
+
+// ── RENDER ROUND LIST ────────────────────────────────────────
+function renderList() {
+  const list = document.getElementById("roundList");
+  list.innerHTML = "";
+  document.getElementById("roundCount").textContent = rounds.length;
+
+  rounds.forEach((r, i) => {
+    const div = document.createElement("div");
+    div.className = "round-item" +
+      (i === activeIdx ? " active" : "") +
+      (r.answer.x != null ? " has-answer" : "");
+
+    const hasPhoto = r.photoUrl && r.photoUrl.length > 0;
+    div.innerHTML = `
+      <div class="round-item-num">Round ${i + 1}</div>
+      <div class="round-item-name">${r.locationName || "(no location set)"}</div>
+      <div class="round-item-coords">${r.answer.floor || "—"} &nbsp; x:${round1(r.answer.x)} &nbsp; y:${round1(r.answer.y)}</div>
+      <div class="round-item-photo ${hasPhoto ? '' : 'missing'}">${hasPhoto ? '📷 Photo uploaded' : '⚠ No photo'}</div>
+    `;
+    div.addEventListener("click", () => selectRound(i));
+    list.appendChild(div);
+  });
+}
+
+function round1(v) { return v == null ? "—" : Number(v).toFixed(1); }
+
+// ── SELECT ROUND ─────────────────────────────────────────────
+function selectRound(idx) {
+  activeIdx = idx;
+  const r = rounds[idx];
+
+  document.getElementById("formTitle").textContent = `Editing Round ${idx + 1}`;
+  document.getElementById("fPhotoUrl").value = r.photoUrl || "";
+  document.getElementById("fHint").value = r.hint || "";
+  document.getElementById("fLocation").value = r.locationName || "";
+  document.getElementById("fFloor").value = r.answer.floor || "";
+  document.getElementById("fX").value = r.answer.x != null ? r.answer.x.toFixed(2) : "";
+  document.getElementById("fY").value = r.answer.y != null ? r.answer.y.toFixed(2) : "";
+
+  // Photo preview
+  const preview = document.getElementById("photoPreview");
+  if (r.photoUrl) {
+    preview.src = r.photoUrl;
+    preview.classList.remove("hidden");
+  } else {
+    preview.classList.add("hidden");
+  }
+
+  // Switch editor floor tab to match round's floor
+  if (r.answer.floor) {
+    selectEditorFloor(r.answer.floor);
+  }
+
+  document.getElementById("emptyHint").style.display = "none";
+  renderList();
+  redraw();
+}
+
+// ── ADD ROUND ────────────────────────────────────────────────
+document.getElementById("addRoundBtn").addEventListener("click", async () => {
+  const newRound = {
+    photoUrl: "",
+    hint: "",
+    locationName: "",
+    answer: { floor: "", x: null, y: null },
+  };
+
+  if (firebaseOk && db) {
+    try {
+      const docRef = await db.collection("geoguessr_rounds").add({
+        ...newRound,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      newRound.id = docRef.id;
+      toast("Round created ✓");
+    } catch (e) {
+      console.error("Failed to add round:", e);
+      toast("Failed to create round in Firebase");
+      newRound.id = uid();
+    }
+  } else {
+    newRound.id = uid();
+  }
+
+  rounds.push(newRound);
+  selectRound(rounds.length - 1);
+});
+
+// ── SAVE ROUND ───────────────────────────────────────────────
+document.getElementById("saveRoundBtn").addEventListener("click", async () => {
+  if (activeIdx === null) return;
+  const r = rounds[activeIdx];
+  r.photoUrl     = document.getElementById("fPhotoUrl").value.trim();
+  r.hint         = document.getElementById("fHint").value.trim();
+  r.locationName = document.getElementById("fLocation").value.trim();
+  r.answer.floor = document.getElementById("fFloor").value;
+  r.answer.x     = parseFloat(document.getElementById("fX").value) || null;
+  r.answer.y     = parseFloat(document.getElementById("fY").value) || null;
+
+  if (firebaseOk && db && r.id) {
+    try {
+      await db.collection("geoguessr_rounds").doc(r.id).set({
+        photoUrl: r.photoUrl,
+        hint: r.hint,
+        locationName: r.locationName,
+        answer: r.answer,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      toast("Saved to Firebase ✓");
+    } catch (e) {
+      console.error("Failed to save round:", e);
+      toast("Failed to save — check console");
+    }
+  } else {
+    toast("Saved locally (no Firebase)");
+  }
+
+  renderList();
+  redraw();
+});
+
+// ── DELETE ROUND ─────────────────────────────────────────────
+document.getElementById("deleteRoundBtn").addEventListener("click", async () => {
+  if (activeIdx === null) return;
+  if (!confirm(`Delete Round ${activeIdx + 1}? This cannot be undone.`)) return;
+
+  const r = rounds[activeIdx];
+
+  if (firebaseOk && db && r.id) {
+    try {
+      await db.collection("geoguessr_rounds").doc(r.id).delete();
+      toast("Deleted from Firebase ✓");
+    } catch (e) {
+      console.error("Failed to delete round:", e);
+      toast("Failed to delete — check console");
+    }
+  }
+
+  rounds.splice(activeIdx, 1);
+  activeIdx = rounds.length > 0 ? Math.min(activeIdx, rounds.length - 1) : null;
+  if (activeIdx !== null) selectRound(activeIdx);
+  else {
+    renderList();
+    redraw();
+    document.getElementById("emptyHint").style.display = "";
+  }
+});
+
+// ── PHOTO UPLOAD ─────────────────────────────────────────────
+const uploadZone = document.getElementById("photoUploadZone");
+const fileInput = document.getElementById("photoFileInput");
+const uploadProgress = document.getElementById("uploadProgress");
+
+uploadZone.addEventListener("click", () => {
+  if (activeIdx === null) { toast("Select a round first!"); return; }
+  fileInput.click();
+});
+
+uploadZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  uploadZone.classList.add("dragover");
+});
+
+uploadZone.addEventListener("dragleave", () => {
+  uploadZone.classList.remove("dragover");
+});
+
+uploadZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove("dragover");
+  if (activeIdx === null) { toast("Select a round first!"); return; }
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith("image/")) {
+    uploadPhoto(file);
+  }
+});
+
+fileInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) uploadPhoto(file);
+  e.target.value = "";
+});
+
+async function uploadPhoto(file) {
+  if (!firebaseOk || !storage) {
+    toast("Firebase Storage not available");
+    return;
+  }
+  if (activeIdx === null) return;
+
+  const r = rounds[activeIdx];
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `geoguessr-photos/${r.id}_photo.${ext}`;
+
+  uploadZone.classList.add("uploading");
+  uploadProgress.textContent = "Uploading…";
+
+  try {
+    const ref = storage.ref(path);
+    const uploadTask = ref.put(file);
+
+    uploadTask.on("state_changed",
+      (snapshot) => {
+        const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        uploadProgress.textContent = `Uploading… ${pct}%`;
+      },
+      (error) => {
+        console.error("Upload error:", error);
+        toast("Upload failed — " + error.message);
+        uploadZone.classList.remove("uploading");
+        uploadProgress.textContent = "";
+      },
+      async () => {
+        const url = await ref.getDownloadURL();
+        r.photoUrl = url;
+        document.getElementById("fPhotoUrl").value = url;
+
+        // Show preview
+        const preview = document.getElementById("photoPreview");
+        preview.src = url;
+        preview.classList.remove("hidden");
+
+        uploadZone.classList.remove("uploading");
+        uploadProgress.textContent = "✓ Uploaded";
+        setTimeout(() => { uploadProgress.textContent = ""; }, 2000);
+
+        toast("Photo uploaded ✓");
+        renderList();
+      }
+    );
+  } catch (e) {
+    console.error("Upload failed:", e);
+    toast("Upload failed");
+    uploadZone.classList.remove("uploading");
+    uploadProgress.textContent = "";
+  }
+}
+
+// ── MAP CLICK ────────────────────────────────────────────────
+const canvas = document.getElementById("pinCanvas");
+const coordDisplay = document.getElementById("coordDisplay");
+
+canvas.addEventListener("mousemove", (e) => {
+  const p = canvasPercent(e);
+  coordDisplay.innerHTML = `x: <span>${p.x.toFixed(2)}</span> &nbsp; y: <span>${p.y.toFixed(2)}</span>`;
+});
+
+canvas.addEventListener("mouseleave", () => {
+  coordDisplay.innerHTML = `x: <span>—</span> &nbsp; y: <span>—</span>`;
+});
+
+canvas.addEventListener("click", (e) => {
+  if (activeIdx === null) {
+    toast("Select a round first!");
+    return;
+  }
+  const p = canvasPercent(e);
+  rounds[activeIdx].answer.x = p.x;
+  rounds[activeIdx].answer.y = p.y;
+  // Also set the floor to the currently selected editor floor
+  rounds[activeIdx].answer.floor = selectedEditorFloor;
+
+  // Update form fields immediately
+  document.getElementById("fX").value = p.x.toFixed(2);
+  document.getElementById("fY").value = p.y.toFixed(2);
+  document.getElementById("fFloor").value = selectedEditorFloor;
+
+  renderList();
+  redraw();
+});
+
+function canvasPercent(e) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: parseFloat((((e.clientX - rect.left) / rect.width) * 100).toFixed(2)),
+    y: parseFloat((((e.clientY - rect.top) / rect.height) * 100).toFixed(2)),
+  };
+}
+
+// ── CANVAS DRAW ──────────────────────────────────────────────
+const img = document.getElementById("floorplanImg");
+
+img.addEventListener("load", () => {
+  imgLoaded = true;
+  syncCanvas();
+  redraw();
+});
+
+window.addEventListener("resize", () => { syncCanvas(); redraw(); });
+
+function syncCanvas() {
+  canvas.width  = img.offsetWidth;
+  canvas.height = img.offsetHeight;
+}
+
+function redraw() {
+  if (!imgLoaded) return;
+  syncCanvas();
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const showAll = document.getElementById("showAllPins").checked;
+
+  rounds.forEach((r, i) => {
+    if (r.answer.x == null || r.answer.y == null) return;
+    // Only show pins that belong to the currently displayed floor
+    if (r.answer.floor !== selectedEditorFloor) return;
+
+    const isActive = i === activeIdx;
+    if (!showAll && !isActive) return;
+
+    const x = (r.answer.x / 100) * canvas.width;
+    const y = (r.answer.y / 100) * canvas.height;
+
+    if (isActive) {
+      drawPin(ctx, x, y, "#c8a96e", `#${i + 1}`, true);
+    } else {
+      drawPin(ctx, x, y, "#6b3dab", `${i + 1}`, false);
+    }
+  });
+}
+
+function drawPin(ctx, x, y, color, label, large) {
+  const r = large ? 10 : 7;
+
+  // Glow ring
+  ctx.beginPath();
+  ctx.arc(x, y, r + 8, 0, Math.PI * 2);
+  ctx.fillStyle = color + (large ? "44" : "22");
+  ctx.fill();
+
+  // Pin body
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = large ? 2.5 : 1.5;
+  ctx.stroke();
+
+  // Label
+  ctx.font = `${large ? "700" : "600"} ${large ? "11px" : "9px"} DM Sans, sans-serif`;
+  ctx.fillStyle = "#fff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x, y);
+  ctx.textBaseline = "alphabetic";
+}
+
+document.getElementById("showAllPins").addEventListener("change", redraw);
+
+// When floor dropdown changes in the form, switch the map too
+document.getElementById("fFloor").addEventListener("change", (e) => {
+  if (e.target.value) {
+    selectEditorFloor(e.target.value);
+  }
+});
+
+// ── TOAST ────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+
+function uid() {
+  return Math.random().toString(36).slice(2, 9);
+}
+</script>
+
+</body>
+</html>
